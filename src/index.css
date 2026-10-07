@@ -159,6 +159,7 @@
 
 .marquee-card {
   flex: 0 0 min(84vw, 360px);
+  opacity: 1 !important;
 }
 
 .project-flip-perspective {

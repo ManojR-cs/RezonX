@@ -564,30 +564,35 @@ function CardMarquee({ children, trackRef, groupRef, interactiveDuplicates = fal
   const containerRef = useRef(null);
   const shouldReduceMotion = useReducedMotion();
   const isInView = useInView(containerRef, { margin: '200px', once: false });
-  const [activeInView, setActiveInView] = useState(false);
+  const [loadDuplicateImages, setLoadDuplicateImages] = useState(false);
 
+  // Defer image-loading in the duplicate group until the user is near the
+  // marquee — but the duplicate group DOM node always exists so that the
+  // track is always exactly 2 × one-group-width, making the -50% loop seamless.
   useEffect(() => {
-    if (shouldReduceMotion) return;
-    if (isInView) {
-      let timer;
-      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-        const idleId = window.requestIdleCallback(() => setActiveInView(true), { timeout: 1500 });
-        return () => window.cancelIdleCallback(idleId);
-      }
-      timer = window.setTimeout(() => setActiveInView(true), 1200);
-      return () => window.clearTimeout(timer);
+    if (shouldReduceMotion || loadDuplicateImages) return;
+    if (!isInView) return;
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      const idleId = window.requestIdleCallback(() => setLoadDuplicateImages(true), { timeout: 1500 });
+      return () => window.cancelIdleCallback(idleId);
     }
-  }, [isInView, shouldReduceMotion]);
+    const timer = window.setTimeout(() => setLoadDuplicateImages(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, [isInView, shouldReduceMotion, loadDuplicateImages]);
 
   const handleInteraction = useCallback(() => {
-    if (!shouldReduceMotion) {
-      setActiveInView(true);
-    }
+    if (!shouldReduceMotion) setLoadDuplicateImages(true);
   }, [shouldReduceMotion]);
 
-  const loadDuplicates = !shouldReduceMotion && activeInView;
+  // Group 1 is the "primary" for forward, "duplicate" for reverse.
+  // Group 2 is the "duplicate" for forward, "primary" for reverse.
   const isGroup1Duplicate = !shouldReduceMotion && reverse;
   const isGroup2Duplicate = shouldReduceMotion || !reverse;
+
+  // loadDuplicates tells OptimizedCardImage inside a duplicate group
+  // whether it may load its image yet.
+  const duplicateLoadReady = !shouldReduceMotion && loadDuplicateImages;
 
   return (
     <div
@@ -597,10 +602,12 @@ function CardMarquee({ children, trackRef, groupRef, interactiveDuplicates = fal
       className="marquee-window"
     >
       <div ref={trackRef} className={`animate-marquee marquee-track${reverse ? ' animate-marquee-reverse' : ''}`}>
-        <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup1Duplicate, loadDuplicates }}>
+        {/* Group 1 — always in DOM for correct total track width */}
+        <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup1Duplicate, loadDuplicates: isGroup1Duplicate ? duplicateLoadReady : true }}>
           <div ref={groupRef} className="marquee-group">{children}</div>
         </MarqueeGroupContext.Provider>
-        <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup2Duplicate, loadDuplicates }}>
+        {/* Group 2 — always in DOM; images inside lazy-load via context */}
+        <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup2Duplicate, loadDuplicates: isGroup2Duplicate ? duplicateLoadReady : true }}>
           <div
             className="marquee-group"
             aria-hidden={interactiveDuplicates ? undefined : true}
@@ -1386,10 +1393,10 @@ function ActivityCards({ collection, type }) {
     return (
       <motion.article
         key={item.id}
-        initial={{ opacity: 0, y: 28 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={shouldMarquee ? false : { opacity: 0, y: 28 }}
+        whileInView={shouldMarquee ? undefined : { opacity: 1, y: 0 }}
         whileHover={{ y: -7, scale: 1.01 }}
-        viewport={{ once: true, margin: '-40px' }}
+        viewport={shouldMarquee ? undefined : { once: true, margin: '-40px' }}
         transition={{ delay: (index % 3) * 0.08, duration: 0.7 }}
         className={`glow-card group overflow-hidden rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.16)] ${shouldMarquee ? 'marquee-card' : ''}`}
       >
@@ -1873,10 +1880,10 @@ function Projects({ collection }) {
     return (
       <motion.article
         key={project.title}
-        initial={{ opacity: 0, y: 24 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={shouldMarquee ? false : { opacity: 0, y: 24 }}
+        whileInView={shouldMarquee ? undefined : { opacity: 1, y: 0 }}
         whileHover={{ y: -7, scale: 1.01 }}
-        viewport={{ once: true, margin: '-40px' }}
+        viewport={shouldMarquee ? undefined : { once: true, margin: '-40px' }}
         transition={{ delay: (index % 2) * 0.08, duration: 0.7 }}
         className={`glow-card group relative overflow-hidden rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,0.16)] ${shouldMarquee ? 'marquee-card' : ''}`}
       >
