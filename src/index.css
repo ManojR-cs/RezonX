@@ -1,0 +1,271 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background: #02040a;
+    color: #ffffff;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 0.05em;
+  }
+
+  /* Fix linter warnings in Tailwind base styles */
+  img,
+  svg,
+  video,
+  canvas,
+  audio,
+  iframe,
+  embed,
+  object {
+    vertical-align: unset; /* Remove vertical-align as it's ignored on display: block */
+  }
+
+  button,
+  input:where([type='button']),
+  input:where([type='reset']),
+  input:where([type='submit']) {
+    appearance: button; /* Define standard property for compatibility */
+  }
+
+  /* Support standard line-clamp property for linter compatibility */
+  [class*='line-clamp-'] {
+    line-clamp: attr(data-line-clamp); /* Placeholder or explicit value if known */
+  }
+  .line-clamp-1 { line-clamp: 1; }
+  .line-clamp-2 { line-clamp: 2; }
+  .line-clamp-3 { line-clamp: 3; }
+  .line-clamp-4 { line-clamp: 4; }
+  .line-clamp-5 { line-clamp: 5; }
+  .line-clamp-6 { line-clamp: 6; }
+}
+
+/* RezonX visual system */
+
+/* Crosshair grid pattern */
+.bg-cross-grid {
+  background-color: #02040a;
+  background-image:
+    radial-gradient(circle at center, rgba(34, 211, 238, 0.25) 0.5px, transparent 0.5px),
+    linear-gradient(to right, rgba(34, 211, 238, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 211, 238, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: center center;
+}
+
+/* Inset viewport glow */
+.viewport-glow {
+  box-shadow:
+    inset 0 0 100px rgba(34, 211, 238, 0.05),
+    inset 0 0 200px rgba(34, 211, 238, 0.02);
+}
+
+/* Glow Card Refinement */
+.glow-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glow-card:hover {
+  border-color: rgba(34, 211, 238, 0.2);
+  background: rgba(34, 211, 238, 0.02);
+  box-shadow: 0 0 40px rgba(34, 211, 238, 0.05);
+}
+
+/* Watermark */
+.watermark {
+  position: absolute;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(5rem, 15vw, 15rem);
+  color: rgba(255, 255, 255, 0.025);
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  letter-spacing: 0.1em;
+}
+
+/* Cyan glow text */
+.text-glow-cyan {
+  text-shadow: 0 0 20px rgba(34, 211, 238, 0.4), 0 0 60px rgba(34, 211, 238, 0.15);
+}
+
+/* Blue glow text */
+.text-glow-blue {
+  text-shadow: 0 0 20px rgba(59, 130, 246, 0.4), 0 0 60px rgba(59, 130, 246, 0.15);
+}
+
+/* White glow text */
+.text-glow-white {
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.4), 0 0 60px rgba(255, 255, 255, 0.15);
+}
+
+/* Dot matrix */
+.dot-matrix {
+  background-image: radial-gradient(circle, rgba(34, 211, 238, 0.1) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+.dot-matrix-glow {
+  background-image: radial-gradient(circle, rgba(34, 211, 238, 0.8) 1.5px, transparent 1.5px);
+  background-size: 8px 8px;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.5) inset;
+}
+
+/* Marquee speed adjustment */
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 52s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-reverse {
+  animation-name: marquee-reverse;
+}
+
+.marquee-window {
+  width: 100%;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 3%, #000 97%, transparent);
+}
+
+.marquee-window:hover .animate-marquee,
+.marquee-window:focus-within .animate-marquee {
+  animation-play-state: paused;
+}
+
+.marquee-group {
+  display: flex;
+  flex: none;
+  gap: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.marquee-card {
+  flex: 0 0 min(84vw, 360px);
+}
+
+.project-flip-perspective {
+  perspective: 1600px;
+}
+
+.project-flip-card {
+  transform-style: preserve-3d;
+}
+
+.project-flip-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.project-flip-back {
+  transform: rotateY(180deg);
+}
+
+.project-flip-face [data-lenis-prevent] {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+@media (min-width: 640px) {
+  .marquee-card {
+    flex-basis: min(44vw, 410px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .marquee-card {
+    flex-basis: min(30vw, 390px);
+  }
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee-reverse {
+  0% {
+    transform: translateX(-50%);
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 4s ease-in-out infinite;
+}
+
+/* Scrollbar hidden */
+::-webkit-scrollbar {
+  display: none;
+}
+
+html,
+body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.3);
+  color: white;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .marquee-window .animate-marquee {
+    animation: none !important;
+    transform: none !important;
+    will-change: auto;
+  }
+
+  .glow-card:hover {
+    transform: none !important;
+  }
+}
