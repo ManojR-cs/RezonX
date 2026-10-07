@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion, useInView, useReducedMotion } from 'framer-motion';
 import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Heart, MapPin, Menu, MessageCircle, Send, X } from 'lucide-react';
@@ -146,13 +146,9 @@ function SplashIntro({ onComplete }) {
         transition={{ duration: shouldReduceMotion ? 0.01 : 0.7, ease: [0.16, 1, 0.3, 1] }}
         className="relative z-10 flex w-full max-w-md flex-col items-center text-center"
       >
-        <div className="mb-8 flex items-center gap-5 sm:gap-7">
-          <div className="size-24 overflow-hidden rounded-full border border-cyan-100/25 bg-[#07101b] p-1.5 shadow-[0_0_32px_rgba(34,211,238,0.12)] sm:size-28">
-            <img src={photo('RezonX_logo.jpeg')} alt="RezonX logo" className="size-full rounded-full object-cover" />
-          </div>
-          <span aria-hidden="true" className="h-12 w-px bg-gradient-to-b from-transparent via-white/30 to-transparent" />
-          <div className="size-[4.5rem] overflow-hidden rounded-full border border-white/15 bg-white/[0.04] p-1.5 sm:size-20">
-            <img src={photo('college_logo.jpeg')} alt="Sri Siddhartha School of Engineering logo" className="size-full rounded-full object-cover" />
+        <div className="mb-8 flex items-center justify-center">
+          <div className="size-28 overflow-hidden rounded-full border border-cyan-100/25 bg-[#07101b] p-2 shadow-[0_0_36px_rgba(34,211,238,0.16)] sm:size-32">
+            <img src={photo('RezonX_logo.jpeg')} alt="RezonX logo" width="128" height="128" className="size-full rounded-full object-cover" />
           </div>
         </div>
 
@@ -543,6 +539,7 @@ function FeaturedEvent({ collection }) {
 
   return (
     <section id="events" className="relative scroll-mt-20 overflow-hidden py-24 md:py-32">
+      <SectionBackground variant="events" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(8,145,178,0.11),transparent_58%)]" />
       <div className="relative mx-auto max-w-7xl px-5 md:px-8">
         <SectionHeading eyebrow="Events" title="Featured Event" description="Published RezonX event details." />
@@ -558,19 +555,119 @@ function FeaturedEvent({ collection }) {
   );
 }
 
+const MarqueeGroupContext = createContext({
+  isDuplicate: false,
+  loadDuplicates: true,
+});
+
 function CardMarquee({ children, trackRef, groupRef, interactiveDuplicates = false, reverse = false }) {
+  const containerRef = useRef(null);
+  const shouldReduceMotion = useReducedMotion();
+  const isInView = useInView(containerRef, { margin: '200px', once: false });
+  const [activeInView, setActiveInView] = useState(false);
+
+  useEffect(() => {
+    if (shouldReduceMotion) return;
+    if (isInView) {
+      let timer;
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        const idleId = window.requestIdleCallback(() => setActiveInView(true), { timeout: 1500 });
+        return () => window.cancelIdleCallback(idleId);
+      }
+      timer = window.setTimeout(() => setActiveInView(true), 1200);
+      return () => window.clearTimeout(timer);
+    }
+  }, [isInView, shouldReduceMotion]);
+
+  const handleInteraction = useCallback(() => {
+    if (!shouldReduceMotion) {
+      setActiveInView(true);
+    }
+  }, [shouldReduceMotion]);
+
+  const loadDuplicates = !shouldReduceMotion && activeInView;
+  const isGroup1Duplicate = !shouldReduceMotion && reverse;
+  const isGroup2Duplicate = shouldReduceMotion || !reverse;
+
   return (
-    <div className="marquee-window">
+    <div
+      ref={containerRef}
+      onPointerEnter={handleInteraction}
+      onFocus={handleInteraction}
+      className="marquee-window"
+    >
       <div ref={trackRef} className={`animate-marquee marquee-track${reverse ? ' animate-marquee-reverse' : ''}`}>
-        <div ref={groupRef} className="marquee-group">{children}</div>
-        <div
-          className="marquee-group"
-          aria-hidden={interactiveDuplicates ? undefined : true}
-          inert={!interactiveDuplicates || undefined}
-        >
-          {children}
-        </div>
+        <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup1Duplicate, loadDuplicates }}>
+          <div ref={groupRef} className="marquee-group">{children}</div>
+        </MarqueeGroupContext.Provider>
+        <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup2Duplicate, loadDuplicates }}>
+          <div
+            className="marquee-group"
+            aria-hidden={interactiveDuplicates ? undefined : true}
+            inert={!interactiveDuplicates || undefined}
+          >
+            {children}
+          </div>
+        </MarqueeGroupContext.Provider>
       </div>
+    </div>
+  );
+}
+
+function OptimizedCardImage({
+  src,
+  alt,
+  className = '',
+  containerClassName = '',
+  width = 400,
+  height = 208,
+  aspectRatio = '400 / 208',
+  overlay = null,
+}) {
+  const { isDuplicate, loadDuplicates } = useContext(MarqueeGroupContext);
+  const containerRef = useRef(null);
+  const [inView, setInView] = useState(() => typeof IntersectionObserver === 'undefined');
+
+  useEffect(() => {
+    if (isDuplicate || inView) return;
+    const element = containerRef.current;
+    if (!element || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '350px 0px 350px 0px' },
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [inView, isDuplicate]);
+
+  const shouldLoad = isDuplicate ? loadDuplicates : inView;
+
+  return (
+    <div
+      ref={containerRef}
+      className={containerClassName}
+      style={{ aspectRatio }}
+    >
+      {shouldLoad && src ? (
+        <img
+          src={src}
+          alt={alt}
+          width={width}
+          height={height}
+          loading="lazy"
+          decoding="async"
+          className={className}
+          style={{ aspectRatio }}
+        />
+      ) : null}
+      {overlay}
     </div>
   );
 }
@@ -701,56 +798,459 @@ function Navbar() {
   );
 }
 
+/* ── Dynamic technical background for non-hero sections ────────────────── */
+const SECTION_BG_CONFIGS = {
+  events: {
+    gridAnim: 'animate-grid-drift-x',
+    glowColor: 'rgba(34,211,238,0.06)',
+    glowPosition: 'left-1/2 top-0',
+    pulseSpeed1: 'animate-trace-pulse-a',
+    pulseSpeed2: 'animate-trace-pulse-b',
+    accentOrange: true,
+    particles: [
+      { left: 14, top: 28, size: 2, anim: 'animate-particle-drift-1', color: 'bg-cyan-400/35' },
+      { left: 84, top: 62, size: 2.5, anim: 'animate-particle-drift-2', color: 'bg-orange-400/30' },
+      { left: 68, top: 18, size: 1.5, anim: 'animate-particle-drift-1', color: 'bg-cyan-300/25' },
+    ],
+  },
+  about: {
+    gridAnim: 'animate-grid-drift-y',
+    glowColor: 'rgba(56,189,248,0.05)',
+    glowPosition: 'left-1/3 top-0',
+    pulseSpeed1: 'animate-trace-pulse-b',
+    pulseSpeed2: 'animate-trace-pulse-c',
+    accentOrange: false,
+    particles: [
+      { left: 20, top: 42, size: 2, anim: 'animate-particle-drift-2', color: 'bg-cyan-400/30' },
+      { left: 74, top: 28, size: 2, anim: 'animate-particle-drift-1', color: 'bg-cyan-300/25' },
+      { left: 88, top: 72, size: 1.5, anim: 'animate-particle-drift-2', color: 'bg-cyan-400/25' },
+    ],
+  },
+  statistics: {
+    gridAnim: 'animate-grid-drift-diag',
+    glowColor: 'rgba(251,146,60,0.04)',
+    glowPosition: 'left-1/2 top-0',
+    pulseSpeed1: 'animate-trace-pulse-c',
+    pulseSpeed2: 'animate-trace-pulse-a',
+    accentOrange: true,
+    particles: [
+      { left: 16, top: 32, size: 2.5, anim: 'animate-particle-drift-1', color: 'bg-orange-400/35' },
+      { left: 48, top: 68, size: 1.5, anim: 'animate-particle-drift-2', color: 'bg-cyan-300/25' },
+      { left: 86, top: 42, size: 2, anim: 'animate-particle-drift-1', color: 'bg-cyan-400/30' },
+    ],
+  },
+  activities: {
+    gridAnim: 'animate-grid-drift-diag-rev',
+    glowColor: 'rgba(34,211,238,0.06)',
+    glowPosition: 'left-2/3 top-0',
+    pulseSpeed1: 'animate-trace-pulse-a',
+    pulseSpeed2: 'animate-trace-pulse-rev',
+    accentOrange: true,
+    particles: [
+      { left: 12, top: 52, size: 2, anim: 'animate-particle-drift-2', color: 'bg-cyan-400/30' },
+      { left: 58, top: 22, size: 1.5, anim: 'animate-particle-drift-1', color: 'bg-orange-400/30' },
+      { left: 92, top: 58, size: 2, anim: 'animate-particle-drift-2', color: 'bg-cyan-300/35' },
+    ],
+  },
+  projects: {
+    gridAnim: 'animate-grid-drift-y-rev',
+    glowColor: 'rgba(34,211,238,0.05)',
+    glowPosition: 'left-1/2 top-0',
+    pulseSpeed1: 'animate-trace-pulse-b',
+    pulseSpeed2: 'animate-trace-pulse-a',
+    accentOrange: false,
+    particles: [
+      { left: 24, top: 28, size: 2, anim: 'animate-particle-drift-1', color: 'bg-cyan-400/30' },
+      { left: 82, top: 68, size: 2.5, anim: 'animate-particle-drift-2', color: 'bg-cyan-300/25' },
+      { left: 62, top: 16, size: 1.5, anim: 'animate-particle-drift-1', color: 'bg-cyan-400/25' },
+    ],
+  },
+  achievements: {
+    gridAnim: 'animate-grid-drift-x-rev',
+    glowColor: 'rgba(251,146,60,0.05)',
+    glowPosition: 'left-1/3 top-0',
+    pulseSpeed1: 'animate-trace-pulse-c',
+    pulseSpeed2: 'animate-trace-pulse-b',
+    accentOrange: true,
+    particles: [
+      { left: 10, top: 42, size: 2.5, anim: 'animate-particle-drift-2', color: 'bg-orange-400/35' },
+      { left: 70, top: 32, size: 2, anim: 'animate-particle-drift-1', color: 'bg-cyan-400/25' },
+      { left: 84, top: 78, size: 1.5, anim: 'animate-particle-drift-2', color: 'bg-orange-300/25' },
+    ],
+  },
+  gallery: {
+    gridAnim: 'animate-grid-drift-diag',
+    glowColor: 'rgba(34,211,238,0.05)',
+    glowPosition: 'left-1/2 top-0',
+    pulseSpeed1: 'animate-trace-pulse-a',
+    pulseSpeed2: 'animate-trace-pulse-c',
+    accentOrange: false,
+    particles: [
+      { left: 18, top: 22, size: 1.5, anim: 'animate-particle-drift-1', color: 'bg-cyan-300/25' },
+      { left: 76, top: 48, size: 2, anim: 'animate-particle-drift-2', color: 'bg-cyan-400/30' },
+      { left: 86, top: 24, size: 2, anim: 'animate-particle-drift-1', color: 'bg-cyan-400/25' },
+    ],
+  },
+  join: {
+    gridAnim: 'animate-grid-drift-y',
+    glowColor: 'rgba(34,211,238,0.07)',
+    glowPosition: 'left-1/2 top-0',
+    pulseSpeed1: 'animate-trace-pulse-b',
+    pulseSpeed2: 'animate-trace-pulse-a',
+    accentOrange: true,
+    particles: [
+      { left: 22, top: 28, size: 2.5, anim: 'animate-particle-drift-1', color: 'bg-cyan-400/35' },
+      { left: 78, top: 38, size: 2.5, anim: 'animate-particle-drift-2', color: 'bg-orange-400/30' },
+      { left: 48, top: 76, size: 1.5, anim: 'animate-particle-drift-1', color: 'bg-cyan-300/25' },
+    ],
+  },
+};
+
+function SectionBackground({ variant = 'events' }) {
+  const config = SECTION_BG_CONFIGS[variant] || SECTION_BG_CONFIGS.events;
+
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden select-none" aria-hidden="true">
+      {/* Faint radial glow with subtle ambient breathing */}
+      <div
+        className={`absolute ${config.glowPosition} h-[min(50vw,480px)] w-[min(70vw,680px)] rounded-full animate-ambient-breathe opacity-70`}
+        style={{ background: `radial-gradient(ellipse at 50% 0%, ${config.glowColor} 0%, transparent 70%)` }}
+      />
+      {/* Micro technical grid with continuous seamless drift */}
+      <div
+        className={`absolute inset-0 bg-tech-grid ${config.gridAnim} opacity-[0.11] md:opacity-[0.14]`}
+      />
+      {/* Left edge dynamic circuit trace */}
+      <svg
+        viewBox="0 0 220 600"
+        className="absolute left-0 top-1/4 h-2/3 w-32 md:w-52 opacity-40 md:opacity-55"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {/* Base circuit paths */}
+        <path d="M0 80 H80 L120 120 H200" stroke="rgba(34,211,238,0.18)" strokeWidth="1" strokeLinecap="round" />
+        <path d="M0 220 H60 L100 260 H180" stroke="rgba(34,211,238,0.22)" strokeWidth="1" strokeLinecap="round" strokeDasharray="6 4" className="animate-bus-stream" />
+        <path d="M0 380 H90 L130 340 H200" stroke="rgba(34,211,238,0.18)" strokeWidth="1" strokeLinecap="round" />
+
+        {/* Traveling signal pulses */}
+        <path
+          d="M0 80 H80 L120 120 H200"
+          stroke="#22d3ee"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray="36 300"
+          className={config.pulseSpeed1}
+        />
+        <path
+          d="M0 380 H90 L130 340 H200"
+          stroke={config.accentOrange ? "#fb923c" : "#22d3ee"}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray="36 300"
+          className={config.pulseSpeed2}
+        />
+
+        {/* Pulsing connection nodes & ping rings */}
+        <circle cx="200" cy="120" r="2.5" fill="#22d3ee" className="animate-node-pulse-cyan" />
+        <circle cx="200" cy="120" r="2.5" fill="none" stroke="#22d3ee" strokeWidth="1" className="animate-node-ping" />
+
+        <circle cx="180" cy="260" r="2" fill="#22d3ee" className="animate-node-pulse-cyan" style={{ animationDelay: '1.8s' }} />
+
+        <circle
+          cx="200"
+          cy="340"
+          r="2.5"
+          fill={config.accentOrange ? "#fb923c" : "#22d3ee"}
+          className={config.accentOrange ? "animate-node-pulse-orange" : "animate-node-pulse-cyan"}
+          style={{ animationDelay: '2.5s' }}
+        />
+        <circle
+          cx="200"
+          cy="340"
+          r="2.5"
+          fill="none"
+          stroke={config.accentOrange ? "#fb923c" : "#22d3ee"}
+          strokeWidth="1"
+          className="animate-node-ping"
+          style={{ animationDelay: '2.5s' }}
+        />
+      </svg>
+      {/* Right edge dynamic circuit trace (mirrored) */}
+      <svg
+        viewBox="0 0 220 600"
+        className="absolute right-0 top-1/4 h-2/3 w-32 md:w-52 opacity-40 md:opacity-55"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {/* Base circuit paths */}
+        <path d="M220 80 H140 L100 120 H20" stroke="rgba(34,211,238,0.18)" strokeWidth="1" strokeLinecap="round" />
+        <path d="M220 220 H160 L120 260 H40" stroke="rgba(34,211,238,0.22)" strokeWidth="1" strokeLinecap="round" strokeDasharray="6 4" className="animate-bus-stream" />
+        <path d="M220 380 H130 L90 340 H20" stroke="rgba(34,211,238,0.18)" strokeWidth="1" strokeLinecap="round" />
+
+        {/* Traveling signal pulses */}
+        <path
+          d="M220 80 H140 L100 120 H20"
+          stroke="#22d3ee"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray="36 300"
+          className={config.pulseSpeed2}
+        />
+        <path
+          d="M220 380 H130 L90 340 H20"
+          stroke={config.accentOrange ? "#fb923c" : "#22d3ee"}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray="36 300"
+          className={config.pulseSpeed1}
+        />
+
+        {/* Pulsing connection nodes & ping rings */}
+        <circle cx="20" cy="120" r="2.5" fill="#22d3ee" className="animate-node-pulse-cyan" style={{ animationDelay: '1.2s' }} />
+        <circle cx="20" cy="120" r="2.5" fill="none" stroke="#22d3ee" strokeWidth="1" className="animate-node-ping" style={{ animationDelay: '1.2s' }} />
+
+        <circle cx="40" cy="260" r="2" fill="#22d3ee" className="animate-node-pulse-cyan" style={{ animationDelay: '2.8s' }} />
+
+        <circle
+          cx="20"
+          cy="340"
+          r="2.5"
+          fill={config.accentOrange ? "#fb923c" : "#22d3ee"}
+          className={config.accentOrange ? "animate-node-pulse-orange" : "animate-node-pulse-cyan"}
+          style={{ animationDelay: '0.8s' }}
+        />
+        <circle
+          cx="20"
+          cy="340"
+          r="2.5"
+          fill="none"
+          stroke={config.accentOrange ? "#fb923c" : "#22d3ee"}
+          strokeWidth="1"
+          className="animate-node-ping"
+          style={{ animationDelay: '0.8s' }}
+        />
+      </svg>
+      {/* Subtle floating telemetry micro-particles */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden hidden sm:block">
+        {config.particles.map((p, idx) => (
+          <div
+            key={idx}
+            className={`absolute rounded-full ${p.color} ${p.anim}`}
+            style={{
+              left: `${p.left}%`,
+              top: `${p.top}%`,
+              width: `${p.size}px`,
+              height: `${p.size}px`,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const heroParticles = [
+  { x: 10, size: 2, startY: '85%', endY: '20%', duration: 15, delay: 0, maxOpacity: 0.5 },
+  { x: 22, size: 1.5, startY: '75%', endY: '15%', duration: 19, delay: 3, maxOpacity: 0.4 },
+  { x: 78, size: 2, startY: '80%', endY: '25%', duration: 16, delay: 1.5, maxOpacity: 0.45 },
+  { x: 90, size: 1.5, startY: '90%', endY: '30%', duration: 17, delay: 4.5, maxOpacity: 0.5 },
+  { x: 5, size: 2, startY: '70%', endY: '10%', duration: 22, delay: 2, maxOpacity: 0.35 },
+  { x: 95, size: 2, startY: '85%', endY: '25%', duration: 18, delay: 5, maxOpacity: 0.4 },
+];
+
+function HeroBackground({ shouldReduceMotion }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 overflow-hidden select-none">
+      {/* 1. Moving Technical Engineering Coordinate Grid */}
+      <motion.div
+        animate={shouldReduceMotion ? undefined : { backgroundPosition: ['0px 0px', '40px 40px'] }}
+        transition={{ duration: 32, repeat: Infinity, ease: 'linear' }}
+        className="absolute inset-0 bg-cross-grid opacity-35"
+      />
+
+      {/* 2. Soft Ambient Lab Depth Light */}
+      <motion.div
+        animate={shouldReduceMotion ? undefined : { scale: [1, 1.08, 1], opacity: [0.22, 0.34, 0.22] }}
+        transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
+        className="absolute left-1/2 top-[44%] h-[min(82vw,800px)] w-[min(82vw,800px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.1)_0%,rgba(59,130,246,0.03)_45%,transparent_70%)]"
+      />
+
+      {/* 3. Subtle Horizontal Technical Scanning Beam */}
+      {!shouldReduceMotion && (
+        <motion.div
+          animate={{ y: ['-10%', '115%'] }}
+          transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+          className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-transparent via-cyan-300/[0.035] to-transparent"
+        >
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-cyan-200/25 to-transparent" />
+        </motion.div>
+      )}
+
+      {/* 4. Concentric Engineering & Robotics Orbital Rings */}
+      <div className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2">
+        {/* Outer Ring with Tracking Nodes */}
+        <motion.div
+          animate={shouldReduceMotion ? undefined : { rotate: 360 }}
+          transition={{ duration: 90, repeat: Infinity, ease: 'linear' }}
+          className="aspect-square w-[min(90vw,840px)] rounded-full border border-cyan-200/[0.06]"
+        >
+          <span className="absolute -top-1 left-1/2 h-2 w-2 rounded-full bg-cyan-200/70 shadow-[0_0_16px_rgba(103,232,249,0.7)]" />
+          <span className="absolute -bottom-1 left-1/2 h-1.5 w-1.5 rounded-full bg-orange-400/60 shadow-[0_0_12px_rgba(251,146,60,0.6)]" />
+        </motion.div>
+
+        {/* Middle Ring - Counter-rotating dashed blueprint gimbal */}
+        <motion.div
+          animate={shouldReduceMotion ? undefined : { rotate: -360 }}
+          transition={{ duration: 120, repeat: Infinity, ease: 'linear' }}
+          className="absolute inset-0 m-auto aspect-square w-[min(72vw,660px)] rounded-full border border-dashed border-white/[0.05]"
+        />
+
+        {/* Inner Ring - Fine telemetry circle */}
+        <motion.div
+          animate={shouldReduceMotion ? undefined : { rotate: 360 }}
+          transition={{ duration: 160, repeat: Infinity, ease: 'linear' }}
+          className="absolute inset-0 m-auto aspect-square w-[min(54vw,480px)] rounded-full border border-cyan-400/[0.04]"
+        />
+      </div>
+
+      {/* 5. Left Flank Circuit Traces & Robotics Data Nodes (Hidden on mobile) */}
+      <div className="absolute left-0 top-1/4 bottom-1/4 w-72 md:w-96 hidden md:block opacity-45">
+        <svg viewBox="0 0 380 400" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 60 H140 L190 110 H260 L280 130" stroke="rgba(34,211,238,0.22)" strokeWidth="1.2" strokeLinecap="round" />
+          <path d="M0 160 H100 L150 210 H240" stroke="rgba(34,211,238,0.18)" strokeWidth="1" strokeDasharray="6 3" />
+          <path d="M0 260 H80 L130 210 H170 L210 250 H290" stroke="rgba(34,211,238,0.2)" strokeWidth="1.2" />
+          <path d="M0 340 H160 L200 300 H270" stroke="rgba(251,146,60,0.22)" strokeWidth="1" />
+          
+          <circle cx="280" cy="130" r="3" fill="#22d3ee" fillOpacity="0.4" stroke="rgba(34,211,238,0.6)" strokeWidth="1" />
+          <circle cx="240" cy="210" r="2.5" fill="#22d3ee" fillOpacity="0.3" />
+          <circle cx="290" cy="250" r="3.5" fill="#22d3ee" fillOpacity="0.5" stroke="rgba(34,211,238,0.7)" strokeWidth="1" />
+          <circle cx="270" cy="300" r="2.5" fill="#fb923c" fillOpacity="0.4" stroke="rgba(251,146,60,0.6)" strokeWidth="1" />
+          <circle cx="140" cy="60" r="2" fill="#22d3ee" fillOpacity="0.3" />
+          <circle cx="130" cy="210" r="2" fill="#22d3ee" fillOpacity="0.3" />
+
+          <line x1="190" y1="110" x2="240" y2="210" stroke="rgba(34,211,238,0.08)" strokeWidth="0.8" strokeDasharray="3 3" />
+          <line x1="240" y1="210" x2="210" y2="250" stroke="rgba(34,211,238,0.08)" strokeWidth="0.8" strokeDasharray="3 3" />
+        </svg>
+
+        <div className="absolute left-6 top-12 font-mono text-[8px] uppercase tracking-widest text-cyan-200/25">
+          <span>BUS_01 // CLK: 120MHz</span>
+        </div>
+        <div className="absolute left-8 bottom-16 font-mono text-[8px] uppercase tracking-widest text-orange-200/25">
+          <span>PWR // 3.3V [ROBOTICS]</span>
+        </div>
+      </div>
+
+      {/* 6. Right Flank Circuit Traces & Engineering Telemetry (Hidden on mobile) */}
+      <div className="absolute right-0 top-1/4 bottom-1/4 w-72 md:w-96 hidden md:block opacity-45">
+        <svg viewBox="0 0 380 400" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M380 70 H240 L190 120 H120" stroke="rgba(34,211,238,0.22)" strokeWidth="1.2" strokeLinecap="round" />
+          <path d="M380 170 H270 L220 220 H140" stroke="rgba(34,211,238,0.18)" strokeWidth="1" strokeDasharray="6 3" />
+          <path d="M380 270 H290 L240 220 H200 L160 260 H90" stroke="rgba(34,211,238,0.2)" strokeWidth="1.2" />
+          <path d="M380 330 H220 L180 290 H100" stroke="rgba(251,146,60,0.22)" strokeWidth="1" />
+
+          <circle cx="120" cy="120" r="3" fill="#22d3ee" fillOpacity="0.4" stroke="rgba(34,211,238,0.6)" strokeWidth="1" />
+          <circle cx="140" cy="220" r="2.5" fill="#22d3ee" fillOpacity="0.3" />
+          <circle cx="90" cy="260" r="3.5" fill="#22d3ee" fillOpacity="0.5" stroke="rgba(34,211,238,0.7)" strokeWidth="1" />
+          <circle cx="100" cy="290" r="2.5" fill="#fb923c" fillOpacity="0.4" stroke="rgba(251,146,60,0.6)" strokeWidth="1" />
+          <circle cx="240" cy="70" r="2" fill="#22d3ee" fillOpacity="0.3" />
+
+          <path d="M120 114 V126 M114 120 H126" stroke="rgba(34,211,238,0.4)" strokeWidth="0.8" />
+        </svg>
+
+        <div className="absolute right-6 top-14 font-mono text-[8px] text-right uppercase tracking-widest text-cyan-200/25">
+          <span>AI_CORE // SYNAPSE_OK</span>
+        </div>
+        <div className="absolute right-8 bottom-14 font-mono text-[8px] text-right uppercase tracking-widest text-cyan-200/25">
+          <span>SENSORS // ONLINE</span>
+        </div>
+      </div>
+
+      {/* 7. Tiny Drifting Engineering Data Particles */}
+      {!shouldReduceMotion && heroParticles.map((p, index) => (
+        <motion.span
+          key={index}
+          animate={{ y: [p.startY, p.endY], opacity: [0, p.maxOpacity, 0] }}
+          transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute rounded-full bg-cyan-200 shadow-[0_0_8px_rgba(34,211,238,0.6)]"
+          style={{ left: `${p.x}%`, width: `${p.size}px`, height: `${p.size}px` }}
+        />
+      ))}
+
+      {/* 8. Laboratory Corner Coordinates & Calibration Marks (Desktop only) */}
+      <div className="absolute inset-x-8 top-28 hidden items-center justify-between font-mono text-[8px] uppercase tracking-widest text-cyan-200/20 md:flex">
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-cyan-400/50" />
+          <span>[LAB_ID // 0xRX-77]</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span>COORDS // 13.33° N, 77.10° E</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-cyan-400/50" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Hero() {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <section
       id="home"
-      className="relative flex min-h-[100svh] scroll-mt-20 items-center justify-center overflow-hidden px-5 pb-16 pt-28"
+      className="relative flex min-h-[100svh] scroll-mt-20 items-center justify-center overflow-hidden px-5 pb-16 pt-28 md:pt-32"
     >
-      <div className="absolute inset-0 bg-cross-grid opacity-35" />
-      <motion.div
-        animate={{ scale: [1, 1.12, 1], opacity: [0.35, 0.55, 0.35] }}
-        transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }}
-        className="absolute left-1/2 top-[43%] h-[min(80vw,760px)] w-[min(80vw,760px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.14),transparent_68%)]"
-      />
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 90, repeat: Infinity, ease: 'linear' }}
-        className="pointer-events-none absolute left-1/2 top-[44%] aspect-square w-[min(88vw,780px)] -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-200/[0.07]"
-      >
-        <span className="absolute -top-1 left-1/2 h-2 w-2 rounded-full bg-cyan-200/70 shadow-[0_0_18px_rgba(103,232,249,0.7)]" />
-      </motion.div>
-      <motion.div
-        animate={{ rotate: -360 }}
-        transition={{ duration: 120, repeat: Infinity, ease: 'linear' }}
-        className="pointer-events-none absolute left-1/2 top-[44%] aspect-square w-[min(70vw,600px)] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.06]"
-      />
+      <HeroBackground shouldReduceMotion={shouldReduceMotion} />
+
       <motion.div
         initial={{ opacity: 0, y: 28, filter: 'blur(12px)' }}
         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
         transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
         className="relative z-10 mx-auto flex w-full max-w-5xl flex-col items-center text-center"
       >
+        {/* Top Institutional Logos (SSAHE University + InUnity) */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.8 }}
-          className="mb-8 flex items-center justify-center gap-3 sm:gap-5 md:mb-10"
+          transition={{ delay: 0.1, duration: 0.8 }}
+          className="mb-8 inline-flex items-center justify-center gap-5 rounded-full border border-white/[0.10] bg-[#050a15]/80 px-6 py-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-md sm:mb-9 sm:gap-8 sm:px-9 sm:py-4 md:mb-10 md:gap-10 md:px-12 md:py-5"
+        >
+          <img
+            src={photo('ssahe_university-7.webp')}
+            alt="Sri Siddhartha Academy of Higher Education"
+            width="300"
+            height="72"
+            className="h-10 w-auto max-w-[150px] object-contain brightness-95 filter transition duration-300 hover:brightness-110 sm:h-14 sm:max-w-[220px] md:h-16 md:max-w-[260px] lg:h-[4.25rem] lg:max-w-[300px]"
+          />
+          <span aria-hidden="true" className="h-8 w-px bg-gradient-to-b from-transparent via-white/30 to-transparent sm:h-11 md:h-14" />
+          <img
+            src={photo('InUnity-Full-Logo-2.png')}
+            alt="InUnity"
+            width="260"
+            height="64"
+            className="h-9 w-auto max-w-[130px] object-contain brightness-95 filter transition duration-300 hover:brightness-110 sm:h-12 sm:max-w-[190px] md:h-14 md:max-w-[230px] lg:h-16 lg:max-w-[260px]"
+          />
+        </motion.div>
+
+        {/* Central RezonX Hero Logo */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ delay: 0.25, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-6 flex items-center justify-center sm:mb-8 md:mb-9"
         >
           <motion.div
-            animate={{ y: [0, -5, 0] }}
-            transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-            className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-cyan-200/20 bg-[#07101b]/65 p-2 shadow-[0_0_45px_rgba(34,211,238,0.09)] backdrop-blur-xl sm:h-24 sm:w-24 md:h-28 md:w-28"
-          >
-            <img src={photo('RezonX_logo.jpeg')} alt="RezonX club logo" className="size-full rounded-full object-cover" />
-          </motion.div>
-          <span aria-hidden="true" className="h-10 w-px bg-gradient-to-b from-transparent via-white/30 to-transparent sm:h-14" />
-          <motion.div
-            animate={{ y: [0, 5, 0] }}
+            animate={shouldReduceMotion ? undefined : { y: [0, -6, 0] }}
             transition={{ duration: 5.5, repeat: Infinity, ease: 'easeInOut' }}
-            className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.04] p-2 shadow-[0_0_35px_rgba(255,255,255,0.04)] backdrop-blur-xl sm:h-24 sm:w-24 md:h-28 md:w-28"
+            className="relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border border-cyan-200/25 bg-[#07101b]/80 p-2.5 shadow-[0_0_60px_rgba(34,211,238,0.18)] backdrop-blur-xl sm:h-32 sm:w-32 md:h-36 md:w-36 lg:h-40 lg:w-40"
           >
-            <img src={photo('college_logo.jpeg')} alt="Sri Siddhartha School of Engineering logo" className="size-full rounded-full object-cover" />
+            {!shouldReduceMotion && (
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 32, repeat: Infinity, ease: 'linear' }}
+                className="pointer-events-none absolute inset-1 rounded-full border border-cyan-200/20 border-t-cyan-300/60"
+              />
+            )}
+            <img src={photo('RezonX_logo.jpeg')} alt="RezonX club logo" width="160" height="160" className="size-full rounded-full object-cover" />
           </motion.div>
         </motion.div>
         <motion.p
@@ -771,7 +1271,7 @@ function Hero() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.65, duration: 0.8 }}
-          className="mt-9 mb-0 flex flex-col items-center justify-center gap-4 sm:flex-row md:mb-12"
+          className="mt-9 mb-16 flex flex-col items-center justify-center gap-4 sm:flex-row md:mb-24"
         >
           <LiquidButton onClick={() => document.getElementById('join')?.scrollIntoView({ behavior: 'smooth' })} className="!border-cyan-300/30 !bg-cyan-300 !px-8 !py-4 !text-[#041016] hover:!bg-cyan-200">
             Join Our Club <ArrowUpRight size={16} />
@@ -781,14 +1281,14 @@ function Hero() {
           </a>
         </motion.div>
       </motion.div>
-      <div className="absolute inset-x-0 bottom-16 border-y border-white/[0.04] py-4 md:bottom-20 md:py-5">
+      <div className="absolute inset-x-0 bottom-4 border-y border-white/[0.04] py-3 md:bottom-6 md:py-4">
         <div className="mx-auto flex max-w-4xl items-center justify-center gap-5 font-display text-[8px] font-bold uppercase tracking-[0.28em] text-cyan-100/55 sm:gap-8 sm:text-[10px] md:text-xs">
           <span>Innovation</span><span className="h-1 w-1 rounded-full bg-cyan-300/70" />
           <span>Technology</span><span className="h-1 w-1 rounded-full bg-cyan-300/70" />
           <span>Execution</span>
         </div>
       </div>
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 font-display text-[8px] tracking-[0.5em] text-white/25 md:bottom-6">SCROLL TO EXPLORE</div>
+      <div className="absolute bottom-[3.5rem] left-1/2 -translate-x-1/2 font-display text-[8px] tracking-[0.5em] text-white/20 md:bottom-[4.5rem]">SCROLL TO EXPLORE</div>
     </section>
   );
 }
@@ -796,7 +1296,8 @@ function Hero() {
 function About() {
   return (
     <section id="about" className="relative scroll-mt-20 overflow-hidden py-24 md:py-32">
-      <div className="mx-auto grid max-w-7xl gap-12 px-5 md:px-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-center">
+      <SectionBackground variant="about" />
+      <div className="relative mx-auto grid max-w-7xl gap-12 px-5 md:px-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-center">
         <SectionHeading eyebrow="About" title="About Our Club" />
         <motion.div
           initial={{ opacity: 0, x: 32 }}
@@ -823,8 +1324,9 @@ function Statistics({ data }) {
     { collection: data.projectCount, value: data.projectCount.data, label: 'Projects' },
   ];
   return (
-    <section id="statistics" className="relative scroll-mt-20 py-20 md:py-28">
-      <div className="mx-auto max-w-7xl px-5 md:px-8">
+    <section id="statistics" className="relative scroll-mt-20 overflow-hidden py-20 md:py-28">
+      <SectionBackground variant="statistics" />
+      <div className="relative mx-auto max-w-7xl px-5 md:px-8">
         <SectionHeading eyebrow="Club statistics" title="Club Statistics" />
         <div className="grid grid-cols-2 border-y border-white/[0.08] md:grid-cols-4">
           {stats.map((stat, index) => (
@@ -862,10 +1364,16 @@ function ActivityCards({ collection, type }) {
     const content = (
       <>
         {image && (
-          <div className="relative h-52 overflow-hidden">
-            <img src={image} alt={item.title} loading="lazy" className="h-full w-full object-cover brightness-[0.72] transition duration-700 group-hover:scale-105 group-hover:brightness-100" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#07101b] to-transparent" />
-          </div>
+          <OptimizedCardImage
+            src={image}
+            alt={item.title}
+            width={400}
+            height={208}
+            aspectRatio="400 / 208"
+            containerClassName="relative h-52 w-full overflow-hidden bg-white/[0.02]"
+            className="h-full w-full object-cover brightness-[0.72] transition duration-700 group-hover:scale-105 group-hover:brightness-100"
+            overlay={<div className="absolute inset-0 bg-gradient-to-t from-[#07101b] to-transparent" />}
+          />
         )}
         <div className="relative bg-gradient-to-b from-white/[0.025] to-transparent p-6">
           <h3 className="font-display text-lg font-bold uppercase tracking-wide text-white transition-colors duration-300 group-hover:text-cyan-100">{item.title}</h3>
@@ -904,8 +1412,9 @@ function ActivityCards({ collection, type }) {
 
 function Activities({ activities, highlights }) {
   return (
-    <section id="activities" className="relative scroll-mt-20 py-24 md:py-32">
-      <div className="mx-auto max-w-7xl px-5 md:px-8">
+    <section id="activities" className="relative scroll-mt-20 overflow-hidden py-24 md:py-32">
+      <SectionBackground variant="activities" />
+      <div className="relative mx-auto max-w-7xl px-5 md:px-8">
         <SectionHeading eyebrow="Activities & events" title="Activities & Events" />
         <div className="mb-16">
           <motion.p initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="mb-6 text-center font-display text-xs font-bold uppercase tracking-[0.3em] text-cyan-200/70">Activities</motion.p>
@@ -934,7 +1443,9 @@ function ProjectDialog({ project, onClose, initialAction, onInteractionUpdate })
   const commentInputRef = useRef(null);
   const handleLikeRef = useRef(null);
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   async function refreshComments(supabase = getSupabaseClient()) {
     const { data, error } = await supabase
@@ -1059,7 +1570,9 @@ function ProjectDialog({ project, onClose, initialAction, onInteractionUpdate })
     }
   }
 
-  handleLikeRef.current = handleLike;
+  useEffect(() => {
+    handleLikeRef.current = handleLike;
+  });
 
   useEffect(() => {
     if (!initialAction) return undefined;
@@ -1146,8 +1659,19 @@ function ProjectDialog({ project, onClose, initialAction, onInteractionUpdate })
             inert={isFlipped || undefined}
             style={{ pointerEvents: isFlipped ? 'none' : 'auto' }}
           >
-            <div className="relative h-48 shrink-0 overflow-hidden sm:h-60">
-              {projectImage && <img src={projectImage} alt={project.title} className="h-full w-full object-cover brightness-75" />}
+            <div className="relative h-48 w-full shrink-0 overflow-hidden bg-white/[0.02] sm:h-60" style={{ aspectRatio: '800 / 240' }}>
+              {projectImage && (
+                <img
+                  src={projectImage}
+                  alt={project.title}
+                  width={800}
+                  height={240}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover brightness-75"
+                  style={{ aspectRatio: '800 / 240' }}
+                />
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-[#080d18] via-transparent to-transparent" />
               <button type="button" onClick={onClose} aria-label="Close project details" className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white transition hover:border-cyan-200/30 hover:text-cyan-100">
                 <X size={18} />
@@ -1365,9 +1889,15 @@ function Projects({ collection }) {
           className="relative z-10 block w-full bg-gradient-to-b from-white/[0.025] to-transparent p-6 text-left md:p-8"
         >
           {resolveCmsImage(project.image_url) && (
-            <div className="mb-6 h-52 overflow-hidden rounded-xl">
-              <img src={resolveCmsImage(project.image_url)} alt={project.title} loading="lazy" className="h-full w-full object-cover brightness-[0.68] transition duration-700 group-hover:scale-105 group-hover:brightness-100" />
-            </div>
+            <OptimizedCardImage
+              src={resolveCmsImage(project.image_url)}
+              alt={project.title}
+              width={400}
+              height={208}
+              aspectRatio="400 / 208"
+              containerClassName="mb-6 h-52 w-full overflow-hidden rounded-xl bg-white/[0.02]"
+              className="h-full w-full object-cover brightness-[0.68] transition duration-700 group-hover:scale-105 group-hover:brightness-100"
+            />
           )}
           <span className="font-display text-xs font-bold tracking-[0.25em] text-cyan-300/70">0{index + 1}</span>
           <h3 className="mt-4 font-display text-lg font-black uppercase leading-snug tracking-wide text-white transition-colors duration-300 group-hover:text-cyan-100 md:text-xl">{project.title}</h3>
@@ -1420,6 +1950,7 @@ function Projects({ collection }) {
 
   return (
     <section id="projects" className="relative scroll-mt-20 overflow-hidden py-24 md:py-32">
+      <SectionBackground variant="projects" />
       <div className="absolute left-1/2 top-1/3 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.05),transparent_70%)]" />
       <div className="relative mx-auto max-w-7xl px-5 md:px-8">
         <SectionHeading eyebrow="Projects" title="Projects" />
@@ -1477,8 +2008,9 @@ function Achievements({ collection }) {
   const achievements = collection.data ?? [];
 
   return (
-    <section id="achievements" className="relative scroll-mt-20 py-24 md:py-32">
-      <div className="mx-auto max-w-7xl px-5 md:px-8">
+    <section id="achievements" className="relative scroll-mt-20 overflow-hidden py-24 md:py-32">
+      <SectionBackground variant="achievements" />
+      <div className="relative mx-auto max-w-7xl px-5 md:px-8">
         <SectionHeading eyebrow="Achievements" title="Achievement Highlights" />
         <CollectionStatus collection={collection} empty="No achievements are currently published." />
         {!collection.loading && !collection.error && achievements.length > 0 && <div className="grid gap-5 md:grid-cols-3">
@@ -1545,7 +2077,8 @@ function Gallery({ collection, onSelectAlbum }) {
 
   return (
     <section id="gallery" className="relative scroll-mt-20 overflow-hidden py-24 md:py-32">
-      <div className="mx-auto max-w-7xl px-5 md:px-8">
+      <SectionBackground variant="gallery" />
+      <div className="relative mx-auto max-w-7xl px-5 md:px-8">
         <SectionHeading eyebrow="Gallery" title="Gallery" />
         <CollectionStatus collection={collection} empty="No gallery photos are currently published." />
         {!collection.loading && !collection.error && albums.length > 0 && (
@@ -1607,6 +2140,7 @@ function GalleryModal({ album, onClose }) {
 function Join() {
   return (
     <section id="join" className="relative scroll-mt-20 overflow-hidden py-24 md:py-32">
+      <SectionBackground variant="join" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(34,211,238,0.08),transparent_65%)]" />
       <div className="relative mx-auto max-w-5xl px-5 text-center">
         <SectionHeading eyebrow="Join" title="Ready to Build Something Extraordinary?" />

@@ -233,6 +233,273 @@
   animation: pulse-glow 4s ease-in-out infinite;
 }
 
+/* Technical grid pattern (transparent base for clean layering) */
+.bg-tech-grid {
+  background-image:
+    radial-gradient(circle at center, rgba(34, 211, 238, 0.35) 0.8px, transparent 0.8px),
+    linear-gradient(to right, rgba(34, 211, 238, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 211, 238, 0.12) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* Grid drift animations — seamless 44px loop */
+@keyframes rx-grid-drift-y {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 44px; }
+}
+
+@keyframes rx-grid-drift-y-rev {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 -44px; }
+}
+
+@keyframes rx-grid-drift-x {
+  0% { background-position: 0 0; }
+  100% { background-position: 44px 0; }
+}
+
+@keyframes rx-grid-drift-x-rev {
+  0% { background-position: 0 0; }
+  100% { background-position: -44px 0; }
+}
+
+@keyframes rx-grid-drift-diag {
+  0% { background-position: 0 0; }
+  100% { background-position: 44px 44px; }
+}
+
+@keyframes rx-grid-drift-diag-rev {
+  0% { background-position: 0 0; }
+  100% { background-position: -44px 44px; }
+}
+
+.animate-grid-drift-y {
+  animation: rx-grid-drift-y 32s linear infinite;
+}
+
+.animate-grid-drift-y-rev {
+  animation: rx-grid-drift-y-rev 36s linear infinite;
+}
+
+.animate-grid-drift-x {
+  animation: rx-grid-drift-x 34s linear infinite;
+}
+
+.animate-grid-drift-x-rev {
+  animation: rx-grid-drift-x-rev 30s linear infinite;
+}
+
+.animate-grid-drift-diag {
+  animation: rx-grid-drift-diag 38s linear infinite;
+}
+
+.animate-grid-drift-diag-rev {
+  animation: rx-grid-drift-diag-rev 34s linear infinite;
+}
+
+/* Traveling circuit signal pulses */
+@keyframes rx-pulse-travel-a {
+  0% {
+    stroke-dashoffset: 340;
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes rx-pulse-travel-b {
+  0% {
+    stroke-dashoffset: 340;
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.95;
+  }
+  85% {
+    opacity: 0.95;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes rx-pulse-travel-c {
+  0% {
+    stroke-dashoffset: 340;
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes rx-pulse-travel-rev {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.95;
+  }
+  88% {
+    opacity: 0.95;
+  }
+  100% {
+    stroke-dashoffset: 340;
+    opacity: 0;
+  }
+}
+
+.animate-trace-pulse-a {
+  animation: rx-pulse-travel-a 6.5s linear infinite;
+}
+
+.animate-trace-pulse-b {
+  animation: rx-pulse-travel-b 8.5s linear infinite;
+}
+
+.animate-trace-pulse-c {
+  animation: rx-pulse-travel-c 10.5s linear infinite;
+}
+
+.animate-trace-pulse-rev {
+  animation: rx-pulse-travel-rev 7.5s linear infinite;
+}
+
+/* Continuous dashed data bus stream */
+@keyframes rx-bus-stream {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -20;
+  }
+}
+
+.animate-bus-stream {
+  animation: rx-bus-stream 2.8s linear infinite;
+}
+
+/* Node pulse and ping */
+@keyframes rx-node-glow-cyan {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.6);
+    filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.9));
+  }
+}
+
+@keyframes rx-node-glow-orange {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.6);
+    filter: drop-shadow(0 0 5px rgba(251, 146, 60, 0.9));
+  }
+}
+
+@keyframes rx-node-ping-ring {
+  0%, 65% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  72% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3);
+  }
+}
+
+.animate-node-pulse-cyan {
+  animation: rx-node-glow-cyan 3.8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.animate-node-pulse-orange {
+  animation: rx-node-glow-orange 4.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.animate-node-ping {
+  animation: rx-node-ping-ring 4.6s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Ambient glow subtle breathing */
+@keyframes rx-ambient-breathe {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translateX(-50%) scale(0.96);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translateX(-50%) scale(1.06);
+  }
+}
+
+.animate-ambient-breathe {
+  animation: rx-ambient-breathe 14s ease-in-out infinite;
+}
+
+/* Micro particle gentle drift */
+@keyframes rx-particle-drift-1 {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-24px) translateX(12px);
+    opacity: 0.7;
+  }
+}
+
+@keyframes rx-particle-drift-2 {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+    opacity: 0.25;
+  }
+  50% {
+    transform: translateY(20px) translateX(-14px);
+    opacity: 0.65;
+  }
+}
+
+.animate-particle-drift-1 {
+  animation: rx-particle-drift-1 9s ease-in-out infinite;
+}
+
+.animate-particle-drift-2 {
+  animation: rx-particle-drift-2 11s ease-in-out infinite;
+}
+
 /* Scrollbar hidden */
 ::-webkit-scrollbar {
   display: none;
@@ -266,6 +533,27 @@ body {
   }
 
   .glow-card:hover {
+    transform: none !important;
+  }
+
+  .animate-grid-drift-y,
+  .animate-grid-drift-y-rev,
+  .animate-grid-drift-x,
+  .animate-grid-drift-x-rev,
+  .animate-grid-drift-diag,
+  .animate-grid-drift-diag-rev,
+  .animate-trace-pulse-a,
+  .animate-trace-pulse-b,
+  .animate-trace-pulse-c,
+  .animate-trace-pulse-rev,
+  .animate-bus-stream,
+  .animate-node-pulse-cyan,
+  .animate-node-pulse-orange,
+  .animate-node-ping,
+  .animate-ambient-breathe,
+  .animate-particle-drift-1,
+  .animate-particle-drift-2 {
+    animation: none !important;
     transform: none !important;
   }
 }
