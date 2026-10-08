@@ -130,6 +130,7 @@
 /* Marquee speed adjustment */
 .animate-marquee {
   display: flex;
+  flex-wrap: nowrap;
   width: max-content;
   animation: marquee 52s linear infinite;
   will-change: transform;
@@ -153,12 +154,15 @@
 .marquee-group {
   display: flex;
   flex: none;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
   gap: 1.25rem;
   padding-right: 1.25rem;
 }
 
 .marquee-card {
   flex: 0 0 min(84vw, 360px);
+  flex-shrink: 0;
   opacity: 1 !important;
 }
 
@@ -202,13 +206,13 @@
   }
 
   100% {
-    transform: translateX(-50%);
+    transform: translateX(calc(-100% / 3));
   }
 }
 
 @keyframes marquee-reverse {
   0% {
-    transform: translateX(-50%);
+    transform: translateX(calc(-100% / 3));
   }
 
   100% {

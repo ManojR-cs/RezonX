@@ -585,10 +585,10 @@ function CardMarquee({ children, trackRef, groupRef, interactiveDuplicates = fal
     if (!shouldReduceMotion) setLoadDuplicateImages(true);
   }, [shouldReduceMotion]);
 
-  // Group 1 is the "primary" for forward, "duplicate" for reverse.
-  // Group 2 is the "duplicate" for forward, "primary" for reverse.
+  // Sequence 1 is primary for forward, Sequence 2 is primary for reverse.
   const isGroup1Duplicate = !shouldReduceMotion && reverse;
-  const isGroup2Duplicate = shouldReduceMotion || !reverse;
+  const isGroup2Duplicate = !shouldReduceMotion && !reverse;
+  const isGroup3Duplicate = !shouldReduceMotion;
 
   // loadDuplicates tells OptimizedCardImage inside a duplicate group
   // whether it may load its image yet.
@@ -602,12 +602,22 @@ function CardMarquee({ children, trackRef, groupRef, interactiveDuplicates = fal
       className="marquee-window"
     >
       <div ref={trackRef} className={`animate-marquee marquee-track${reverse ? ' animate-marquee-reverse' : ''}`}>
-        {/* Group 1 — always in DOM for correct total track width */}
+        {/* Sequence 1 */}
         <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup1Duplicate, loadDuplicates: isGroup1Duplicate ? duplicateLoadReady : true }}>
           <div ref={groupRef} className="marquee-group">{children}</div>
         </MarqueeGroupContext.Provider>
-        {/* Group 2 — always in DOM; images inside lazy-load via context */}
+        {/* Sequence 2 */}
         <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup2Duplicate, loadDuplicates: isGroup2Duplicate ? duplicateLoadReady : true }}>
+          <div
+            className="marquee-group"
+            aria-hidden={interactiveDuplicates ? undefined : true}
+            inert={!interactiveDuplicates || undefined}
+          >
+            {children}
+          </div>
+        </MarqueeGroupContext.Provider>
+        {/* Sequence 3 */}
+        <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup3Duplicate, loadDuplicates: duplicateLoadReady }}>
           <div
             className="marquee-group"
             aria-hidden={interactiveDuplicates ? undefined : true}
