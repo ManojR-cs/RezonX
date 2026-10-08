@@ -560,7 +560,7 @@ const MarqueeGroupContext = createContext({
   loadDuplicates: true,
 });
 
-function CardMarquee({ children, trackRef: trackRefProp, groupRef: groupRefProp, interactiveDuplicates = false, reverse = false }) {
+function CardMarquee({ children, trackRef: trackRefProp, groupRef: groupRefProp, interactiveDuplicates = false, reverse = false, duration = 52 }) {
   const containerRef = useRef(null);
   // Allow external refs (needed by Projects prev/next nav) while providing
   // internal fallbacks for Activities and Recent Highlights.
@@ -632,7 +632,7 @@ function CardMarquee({ children, trackRef: trackRefProp, groupRef: groupRefProp,
       onFocus={handleInteraction}
       className="marquee-window"
     >
-      <div ref={trackRef} className={`animate-marquee marquee-track${reverse ? ' animate-marquee-reverse' : ''}`}>
+      <div ref={trackRef} className={`animate-marquee marquee-track${reverse ? ' animate-marquee-reverse' : ''}`} style={{ animationDuration: `${duration}s` }}>
         {/* Sequence 1 */}
         <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup1Duplicate, loadDuplicates: isGroup1Duplicate ? duplicateLoadReady : true }}>
           <div ref={groupRef} className="marquee-group">{children}</div>
@@ -1405,7 +1405,7 @@ function Statistics({ data }) {
 
 function ActivityCards({ collection, type }) {
   const items = collection.data ?? [];
-  const shouldMarquee = items.length >= 4;
+  const shouldMarquee = items.length > 0;
   const cards = items.map((item, index) => {
     const localImage = activityImageFallbacks.get(titleKey(item.title));
     const image = resolveCmsImage(item.image_url, localImage ? photo(localImage) : null);
@@ -1451,7 +1451,7 @@ function ActivityCards({ collection, type }) {
       <CollectionStatus collection={collection} empty={`No ${type.toLowerCase()} are currently published.`} />
       {!collection.loading && !collection.error && items.length > 0 && (
         shouldMarquee
-          ? <CardMarquee reverse={type === 'Recent Highlights'}>{cards}</CardMarquee>
+          ? <CardMarquee duration={30}>{cards}</CardMarquee>
           : <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{cards}</div>
       )}
     </>
@@ -1810,7 +1810,7 @@ function Projects({ collection }) {
   const [selectedAction, setSelectedAction] = useState(null);
   const [interactionSummaries, setInteractionSummaries] = useState({});
   const projects = collection.data ?? [];
-  const shouldMarquee = projects.length >= 4;
+  const shouldMarquee = projects.length > 0;
   const trackRef = useRef(null);
   const groupRef = useRef(null);
   const seekFrameRef = useRef(0);
@@ -2030,7 +2030,7 @@ function Projects({ collection }) {
               </motion.button>
             </div>
             {shouldMarquee
-              ? <CardMarquee trackRef={trackRef} groupRef={groupRef} interactiveDuplicates>{cards}</CardMarquee>
+              ? <CardMarquee trackRef={trackRef} groupRef={groupRef} interactiveDuplicates duration={30}>{cards}</CardMarquee>
               : <div className="grid gap-4 md:grid-cols-2">{cards}</div>}
           </>
         )}
