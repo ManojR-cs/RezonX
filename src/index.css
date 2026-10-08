@@ -134,6 +134,8 @@
   width: max-content;
   animation: marquee 52s linear infinite;
   will-change: transform;
+  /* Overridden in pixels by useLayoutEffect for pixel-perfect looping */
+  --marquee-offset: calc(100% / 3);
 }
 
 .animate-marquee-reverse {
@@ -201,21 +203,24 @@
 }
 
 @keyframes marquee {
-  0% {
+  from {
     transform: translateX(0);
   }
 
-  100% {
-    transform: translateX(calc(-100% / 3));
+  to {
+    /* --marquee-offset is set to one group's exact pixel width by useLayoutEffect.
+       The calc(-100% / 3) fallback is used before JS runs and should be
+       mathematically equivalent, but pixel-measured value is authoritative. */
+    transform: translateX(calc(-1 * var(--marquee-offset, calc(100% / 3))));
   }
 }
 
 @keyframes marquee-reverse {
-  0% {
-    transform: translateX(calc(-100% / 3));
+  from {
+    transform: translateX(calc(-1 * var(--marquee-offset, calc(100% / 3))));
   }
 
-  100% {
+  to {
     transform: translateX(0);
   }
 }

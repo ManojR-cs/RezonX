@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion, useInView, useReducedMotion } from 'framer-motion';
 import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Heart, MapPin, Menu, MessageCircle, Send, X } from 'lucide-react';
@@ -560,15 +560,46 @@ const MarqueeGroupContext = createContext({
   loadDuplicates: true,
 });
 
-function CardMarquee({ children, trackRef, groupRef, interactiveDuplicates = false, reverse = false }) {
+function CardMarquee({ children, trackRef: trackRefProp, groupRef: groupRefProp, interactiveDuplicates = false, reverse = false }) {
   const containerRef = useRef(null);
+  // Allow external refs (needed by Projects prev/next nav) while providing
+  // internal fallbacks for Activities and Recent Highlights.
+  const internalTrackRef = useRef(null);
+  const internalGroupRef = useRef(null);
+  const trackRef = trackRefProp ?? internalTrackRef;
+  const groupRef = groupRefProp ?? internalGroupRef;
+
   const shouldReduceMotion = useReducedMotion();
   const isInView = useInView(containerRef, { margin: '200px', once: false });
   const [loadDuplicateImages, setLoadDuplicateImages] = useState(false);
 
-  // Defer image-loading in the duplicate group until the user is near the
-  // marquee — but the duplicate group DOM node always exists so that the
-  // track is always exactly 2 × one-group-width, making the -50% loop seamless.
+  // ─── Pixel-perfect animation distance ─────────────────────────────────────
+  // calc(-100% / 3) on a max-content track with vw-sized children is unreliable
+  // on mobile Chrome/Safari because the browser may compute the track
+  // percentage differently from the measured group offsetWidth.
+  // We measure the primary group in pixels and store it as --marquee-offset
+  // on the track so the keyframes use an exact integer-pixel distance.
+  useLayoutEffect(() => {
+    const track = trackRef.current;
+    const group = groupRef.current;
+    if (!track || !group || shouldReduceMotion) return;
+
+    const sync = () => {
+      const w = group.offsetWidth;
+      if (w > 0) track.style.setProperty('--marquee-offset', `${w}px`);
+    };
+    sync();
+
+    // Re-measure on viewport resize (vw card widths change at breakpoints).
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(sync);
+    ro.observe(group);
+    return () => ro.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldReduceMotion]); // refs are stable; only re-run if motion pref changes
+
+  // Defer image-loading in duplicate groups until the marquee is near the
+  // viewport — the duplicate DOM nodes always exist so track width is stable.
   useEffect(() => {
     if (shouldReduceMotion || loadDuplicateImages) return;
     if (!isInView) return;
@@ -585,7 +616,7 @@ function CardMarquee({ children, trackRef, groupRef, interactiveDuplicates = fal
     if (!shouldReduceMotion) setLoadDuplicateImages(true);
   }, [shouldReduceMotion]);
 
-  // Sequence 1 is primary for forward, Sequence 2 is primary for reverse.
+  // Sequence 1 is primary for forward; Sequence 2 is primary for reverse.
   const isGroup1Duplicate = !shouldReduceMotion && reverse;
   const isGroup2Duplicate = !shouldReduceMotion && !reverse;
   const isGroup3Duplicate = !shouldReduceMotion;
