@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, MotionConfig, motion, useInView, useReducedMotion } from 'framer-motion';
 import { ArrowDown, ArrowRight, ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Heart, MapPin, Menu, MessageCircle, Send, X } from 'lucide-react';
@@ -562,8 +562,6 @@ const MarqueeGroupContext = createContext({
 
 function CardMarquee({ children, trackRef: trackRefProp, groupRef: groupRefProp, interactiveDuplicates = false, reverse = false, duration = 52 }) {
   const containerRef = useRef(null);
-  // Allow external refs (needed by Projects prev/next nav) while providing
-  // internal fallbacks for Activities and Recent Highlights.
   const internalTrackRef = useRef(null);
   const internalGroupRef = useRef(null);
   const trackRef = trackRefProp ?? internalTrackRef;
@@ -573,41 +571,14 @@ function CardMarquee({ children, trackRef: trackRefProp, groupRef: groupRefProp,
   const isInView = useInView(containerRef, { margin: '200px', once: false });
   const [loadDuplicateImages, setLoadDuplicateImages] = useState(false);
 
-  // ─── Pixel-perfect animation distance ─────────────────────────────────────
-  // calc(-100% / 3) on a max-content track with vw-sized children is unreliable
-  // on mobile Chrome/Safari because the browser may compute the track
-  // percentage differently from the measured group offsetWidth.
-  // We measure the primary group in pixels and store it as --marquee-offset
-  // on the track so the keyframes use an exact integer-pixel distance.
-  useLayoutEffect(() => {
-    const track = trackRef.current;
-    const group = groupRef.current;
-    if (!track || !group || shouldReduceMotion) return;
-
-    const sync = () => {
-      const w = group.offsetWidth;
-      if (w > 0) track.style.setProperty('--marquee-offset', `${w}px`);
-    };
-    sync();
-
-    // Re-measure on viewport resize (vw card widths change at breakpoints).
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const ro = new ResizeObserver(sync);
-    ro.observe(group);
-    return () => ro.disconnect();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldReduceMotion]); // refs are stable; only re-run if motion pref changes
-
-  // Defer image-loading in duplicate groups until the marquee is near the
-  // viewport — the duplicate DOM nodes always exist so track width is stable.
   useEffect(() => {
-    if (shouldReduceMotion || loadDuplicateImages) return;
-    if (!isInView) return;
+    if (shouldReduceMotion || loadDuplicateImages || !isInView) return undefined;
 
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
       const idleId = window.requestIdleCallback(() => setLoadDuplicateImages(true), { timeout: 1500 });
       return () => window.cancelIdleCallback(idleId);
     }
+
     const timer = window.setTimeout(() => setLoadDuplicateImages(true), 1200);
     return () => window.clearTimeout(timer);
   }, [isInView, shouldReduceMotion, loadDuplicateImages]);
@@ -616,13 +587,8 @@ function CardMarquee({ children, trackRef: trackRefProp, groupRef: groupRefProp,
     if (!shouldReduceMotion) setLoadDuplicateImages(true);
   }, [shouldReduceMotion]);
 
-  // Sequence 1 is primary for forward; Sequence 2 is primary for reverse.
-  const isGroup1Duplicate = !shouldReduceMotion && reverse;
-  const isGroup2Duplicate = !shouldReduceMotion && !reverse;
-  const isGroup3Duplicate = !shouldReduceMotion;
-
-  // loadDuplicates tells OptimizedCardImage inside a duplicate group
-  // whether it may load its image yet.
+  const firstGroupDuplicate = !shouldReduceMotion && reverse;
+  const secondGroupDuplicate = !shouldReduceMotion && !reverse;
   const duplicateLoadReady = !shouldReduceMotion && loadDuplicateImages;
 
   return (
@@ -632,23 +598,18 @@ function CardMarquee({ children, trackRef: trackRefProp, groupRef: groupRefProp,
       onFocus={handleInteraction}
       className="marquee-window"
     >
-      <div ref={trackRef} className={`animate-marquee marquee-track${reverse ? ' animate-marquee-reverse' : ''}`} style={{ animationDuration: `${duration}s` }}>
-        {/* Sequence 1 */}
-        <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup1Duplicate, loadDuplicates: isGroup1Duplicate ? duplicateLoadReady : true }}>
-          <div ref={groupRef} className="marquee-group">{children}</div>
-        </MarqueeGroupContext.Provider>
-        {/* Sequence 2 */}
-        <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup2Duplicate, loadDuplicates: isGroup2Duplicate ? duplicateLoadReady : true }}>
-          <div
-            className="marquee-group"
-            aria-hidden={interactiveDuplicates ? undefined : true}
-            inert={!interactiveDuplicates || undefined}
-          >
+      <div
+        ref={trackRef}
+        className={`marquee-track${reverse ? ' marquee-track--reverse' : ''}`}
+        style={{ animationDuration: `${duration}s` }}
+      >
+        <MarqueeGroupContext.Provider value={{ isDuplicate: firstGroupDuplicate, loadDuplicates: firstGroupDuplicate ? duplicateLoadReady : true }}>
+          <div ref={groupRef} className="marquee-group">
             {children}
           </div>
         </MarqueeGroupContext.Provider>
-        {/* Sequence 3 */}
-        <MarqueeGroupContext.Provider value={{ isDuplicate: isGroup3Duplicate, loadDuplicates: duplicateLoadReady }}>
+
+        <MarqueeGroupContext.Provider value={{ isDuplicate: secondGroupDuplicate, loadDuplicates: secondGroupDuplicate ? duplicateLoadReady : true }}>
           <div
             className="marquee-group"
             aria-hidden={interactiveDuplicates ? undefined : true}
@@ -799,13 +760,13 @@ function Navbar() {
             REZON<span className="text-cyan-300">X</span>
           </span>
         </button>
-        <nav aria-label="Main navigation" className="hidden items-center gap-0.5 rounded-full border border-white/[0.05] bg-black/20 p-1 md:flex">
+        <nav aria-label="Main navigation" className="hidden items-center gap-0.5 rounded-full border border-white/[0.05] bg-black/20 p-1 xl:flex">
           {navLinks}
         </nav>
         <button
           type="button"
           onClick={() => navigateTo('join')}
-          className="hidden items-center gap-2 rounded-full border border-cyan-200/20 bg-cyan-200/[0.08] px-4 py-2.5 font-display text-[9px] font-bold uppercase tracking-[0.16em] text-cyan-100 transition hover:border-cyan-200/40 hover:bg-cyan-200/[0.14] lg:inline-flex"
+          className="hidden items-center gap-2 rounded-full border border-cyan-200/20 bg-cyan-200/[0.08] px-4 py-2.5 font-display text-[9px] font-bold uppercase tracking-[0.16em] text-cyan-100 transition hover:border-cyan-200/40 hover:bg-cyan-200/[0.14] xl:inline-flex"
         >
           Join RezonX <ArrowUpRight size={13} />
         </button>
@@ -815,7 +776,7 @@ function Navbar() {
           aria-expanded={isOpen}
           aria-controls="mobile-navigation"
           onClick={() => setIsOpen((open) => !open)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08] md:hidden"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-white transition hover:border-cyan-200/30 hover:bg-cyan-200/[0.08] xl:hidden"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.span key={isOpen ? 'close' : 'menu'} initial={{ opacity: 0, rotate: -45, scale: 0.8 }} animate={{ opacity: 1, rotate: 0, scale: 1 }} exit={{ opacity: 0, rotate: 45, scale: 0.8 }} transition={{ duration: 0.16 }}>
@@ -833,7 +794,7 @@ function Navbar() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="mx-3 mt-2 origin-top overflow-hidden rounded-2xl border border-white/[0.09] bg-[#060a14]/95 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:mx-5 md:hidden"
+            className="mx-3 mt-2 max-h-[calc(100svh-6rem)] origin-top overscroll-contain overflow-y-auto rounded-2xl border border-white/[0.09] bg-[#060a14]/95 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-2xl sm:mx-5 xl:hidden"
           >
             <div className="flex flex-col gap-1">{navLinks}</div>
             <button type="button" onClick={() => navigateTo('join')} className="mt-2 flex w-full items-center justify-between rounded-xl border border-cyan-200/15 bg-cyan-200/[0.07] px-4 py-3 font-display text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100 transition hover:bg-cyan-200/[0.13]">
@@ -1403,7 +1364,7 @@ function Statistics({ data }) {
   );
 }
 
-function ActivityCards({ collection, type }) {
+function ActivityCards({ collection, type, reverse = false }) {
   const items = collection.data ?? [];
   const shouldMarquee = items.length > 0;
   const cards = items.map((item, index) => {
@@ -1451,7 +1412,7 @@ function ActivityCards({ collection, type }) {
       <CollectionStatus collection={collection} empty={`No ${type.toLowerCase()} are currently published.`} />
       {!collection.loading && !collection.error && items.length > 0 && (
         shouldMarquee
-          ? <CardMarquee duration={30}>{cards}</CardMarquee>
+          ? <CardMarquee duration={30} reverse={reverse}>{cards}</CardMarquee>
           : <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{cards}</div>
       )}
     </>
@@ -1470,7 +1431,7 @@ function Activities({ activities, highlights }) {
         </div>
         <div id="highlights" className="scroll-mt-24">
           <motion.p initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="mb-6 text-center font-display text-xs font-bold uppercase tracking-[0.3em] text-cyan-200/70">Recent Highlights</motion.p>
-          <ActivityCards collection={highlights} type="Recent Highlights" />
+          <ActivityCards collection={highlights} type="Recent Highlights" reverse />
         </div>
       </div>
     </section>

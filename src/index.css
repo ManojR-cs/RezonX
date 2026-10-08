@@ -127,18 +127,17 @@
   box-shadow: 0 0 10px rgba(34, 211, 238, 0.5) inset;
 }
 
-/* Marquee speed adjustment */
-.animate-marquee {
+/* Two identical, non-shrinking groups make the transform loop land on the
+   exact start of the next group without measuring viewport or card widths. */
+.marquee-track {
   display: flex;
   flex-wrap: nowrap;
   width: max-content;
-  animation: marquee 52s linear infinite;
+  animation: marquee-forward 52s linear infinite;
   will-change: transform;
-  /* Overridden in pixels by useLayoutEffect for pixel-perfect looping */
-  --marquee-offset: calc(100% / 3);
 }
 
-.animate-marquee-reverse {
+.marquee-track--reverse {
   animation-name: marquee-reverse;
 }
 
@@ -148,18 +147,37 @@
   mask-image: linear-gradient(to right, transparent, #000 3%, #000 97%, transparent);
 }
 
-.marquee-window:hover .animate-marquee,
-.marquee-window:focus-within .animate-marquee {
+.marquee-window:hover .marquee-track,
+.marquee-window:focus-within .marquee-track {
   animation-play-state: paused;
 }
 
 .marquee-group {
   display: flex;
-  flex: none;
-  flex-shrink: 0;
   flex-wrap: nowrap;
+  flex: 0 0 auto;
   gap: 1.25rem;
   padding-right: 1.25rem;
+}
+
+@keyframes marquee-forward {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes marquee-reverse {
+  from {
+    transform: translate3d(-50%, 0, 0);
+  }
+
+  to {
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .marquee-card {
@@ -199,29 +217,6 @@
 @media (min-width: 1024px) {
   .marquee-card {
     flex-basis: min(30vw, 390px);
-  }
-}
-
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-
-  to {
-    /* --marquee-offset is set to one group's exact pixel width by useLayoutEffect.
-       The calc(-100% / 3) fallback is used before JS runs and should be
-       mathematically equivalent, but pixel-measured value is authoritative. */
-    transform: translateX(calc(-1 * var(--marquee-offset, calc(100% / 3))));
-  }
-}
-
-@keyframes marquee-reverse {
-  from {
-    transform: translateX(calc(-1 * var(--marquee-offset, calc(100% / 3))));
-  }
-
-  to {
-    transform: translateX(0);
   }
 }
 
@@ -536,7 +531,7 @@ body {
     transition-duration: 0.01ms !important;
   }
 
-  .marquee-window .animate-marquee {
+  .marquee-window .marquee-track {
     animation: none !important;
     transform: none !important;
     will-change: auto;
