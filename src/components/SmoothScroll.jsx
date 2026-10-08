@@ -7,16 +7,15 @@ const SmoothScroll = () => {
         if (prefersReducedMotion) return undefined;
 
         const lenis = new Lenis({
-            duration: 1.5, // Increased duration for more "delay" and smoothness
+            duration: 0.8,
             easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
             orientation: 'vertical',
             gestureOrientation: 'vertical',
             smoothWheel: true,
-            wheelMultiplier: 0.3, // Slightly reduced multiplier for more control
+            wheelMultiplier: 1,
             smoothTouch: true,
-            touchMultiplier: 0.2,
+            touchMultiplier: 1,
             infinite: false,
-            lerp: 0.002, // Lower lerp value makes the scroll more "delayed" and smooth
         });
 
         let frameId;
